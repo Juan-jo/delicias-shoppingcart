@@ -3,6 +3,7 @@ package org.delicias.shoppingcart.domain.model;
 import jakarta.persistence.*;
 import lombok.*;
 import org.delicias.common.adjusment.OrderAdjustment;
+import org.hibernate.annotations.Formula;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -35,6 +36,11 @@ public class ShoppingCart {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private List<OrderAdjustment> adjustments = new ArrayList<>();
+
+
+    @Formula("(SELECT COUNT(*) FROM shopping_cart_line s WHERE s.shopping_cart_uuid = id)")
+    private Integer lineCount;
+
 
     public void addAdjustment(OrderAdjustment adjustment) {
         if(this.adjustments == null) {
