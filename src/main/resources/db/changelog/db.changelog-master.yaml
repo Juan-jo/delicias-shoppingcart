@@ -1,0 +1,96 @@
+databaseChangeLog:
+  - changeSet:
+      id: SC001
+      author: jdev
+      changes:
+        - sql:
+            sql: >-
+              create extension if not exists "uuid-ossp";
+
+  -  changeSet:
+       id: SC002
+       author: jdev
+       changes:
+         -  createTable:
+              tableName: shopping_cart
+              columns:
+                - column:
+                    constraints:
+                      nullable: false
+                      primaryKey: true
+                      primaryKeyName: pk_shopping_cart_id
+                    name: id
+                    type: UUID
+                    defaultValue: uuid_generate_v4()
+                - column:
+                    constraints:
+                      nullable: false
+                    name: user_uuid
+                    type: UUID
+                    remarks: Keycloak user ID
+                - column:
+                    constraints:
+                      nullable: false
+                    name: restaurant_tmpl_id
+                    type: INTEGER
+                    remarks: Restaurant ID
+                - column:
+                    constraints:
+                      nullable: true
+                    name: user_address_id
+                    type: INTEGER
+                    remarks: User address delivery
+                - column:
+                    name: adjustments
+                    type: JSONB
+                    remarks: "Lista de cargos y descuentos relacionados con el carrito de compra"
+                    defaultValue: '[]'
+         - addUniqueConstraint:
+             columnNames: restaurant_tmpl_id, user_uuid
+             constraintName: shopping_cart_unique
+             schemaName: public
+             tableName: shopping_cart
+             validate: true
+
+  -  changeSet:
+       id: SC003
+       author: jdev
+       changes:
+         -  createTable:
+              tableName: shopping_cart_line
+              columns:
+                - column:
+                    constraints:
+                      nullable: false
+                      primaryKey: true
+                      primaryKeyName: pk_shopping_car_line_id
+                    name: id
+                    type: UUID
+                    defaultValue: uuid_generate_v4()
+                - column:
+                    constraints:
+                      nullable: false
+                    name: shopping_cart_uuid
+                    type: UUID
+                - column:
+                    constraints:
+                      nullable: false
+                    name: product_tmpl_id
+                    type: INTEGER
+                    remarks: Product ID
+                - column:
+                    constraints:
+                      nullable: true
+                    name: qty
+                    type: smallint
+                    remarks: Quantity added
+                - column:
+                    name: attr_value_ids
+                    type: int[]
+                    remarks: List of Id`s attribute values
+         - addForeignKeyConstraint:
+             baseColumnNames: shopping_cart_uuid
+             baseTableName: shopping_cart_line
+             constraintName: line_shopping_cart_uuid_fkey
+             referencedColumnNames: id
+             referencedTableName: shopping_cart

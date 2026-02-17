@@ -1,0 +1,77 @@
+quarkus:
+  http:
+    port: 3004
+    body:
+      uploads-directory: /tmp/quarkus-uploads
+
+  datasource:
+    db-kind: postgresql
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    jdbc:
+      url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+      min-size: 2
+      max-size: 20
+
+  liquibase:
+    migrate-at-start: true
+    change-log: db/changelog/db.changelog-master.yaml
+    validate-on-migrate: true
+
+  hibernate-orm:
+    database:
+      generation: none
+    log:
+      sql: true
+
+  smallrye-jwt:
+    enabled: true
+
+  oidc:
+    auth-server-url: ${AUTH_SERVER_URL}/realms/${REALM}
+    client-id: ${AUTH_CLIENT_ID}
+
+    # Indica que este microservicio solo valida tokens (Resource Server)
+    application-type: service
+
+    # Para validar el token localmente sin llamar a Keycloak cada vez (mejor rendimiento)
+    token:
+      issuer: ${AUTH_SERVER_URL}/realms/${REALM}
+
+  security:
+    auth:
+      permission:
+        authenticated:
+          paths: [ "/api/*" ]
+          policy: authenticated
+
+  index-dependency:
+    core:
+      group-id: com.delicias
+      artifact-id: delicias-service-core
+
+  log:
+    category:
+      "org.jboss.resteasy.reactive.client.logging":
+        level: DEBUG
+
+  rest-client:
+    logging:
+      scope: all
+      body-limit: 1024
+    supabase-service:
+      url: ${SUPABASE_URL}
+      scope: jakarta.inject.Singleton
+    users-service:
+      url: ${CLIENT_API_USERS_URL}
+    products-service:
+      url: ${CLIENT_API_PRODUCTS_URL}
+    restaurants-service:
+      url: ${CLIENT_API_RESTAURANTS_URL}
+
+
+delicias:
+  supabase:
+    url: ${SUPABASE_URL}
+    key: ${SUPABASE_KEY}
+    bucket: ${SUPABASE_BUCKET}
