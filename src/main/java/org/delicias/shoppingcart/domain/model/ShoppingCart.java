@@ -35,7 +35,7 @@ public class ShoppingCart {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
-    private List<OrderAdjustment> adjustments = new ArrayList<>();
+    private List<OrderAdjustment> adjustments;
 
 
     @Formula("(SELECT COUNT(*) FROM shopping_cart_line s WHERE s.shopping_cart_uuid = id)")
