@@ -1,0 +1,12 @@
+quarkus:
+  hibernate-orm:
+    log:
+      sql: true
+    format-sql: true
+  oidc:
+    token:
+      issuer: any
+  log:
+    category:
+      "org.jboss.resteasy.reactive.client.logging":
+        level: DEBUG
