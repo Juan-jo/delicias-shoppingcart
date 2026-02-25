@@ -1,6 +1,5 @@
 package org.delicias.shoppingcart.dto;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import org.delicias.common.adjusment.AdjustmentType;
@@ -36,26 +35,15 @@ public record ShoppingCartDTO(
 
             String pictureUrl,
 
-            Set<AttrAddedItem> attrsAdded,
-
-            @JsonIgnore
-            Set<Integer> attrValuesAdded // Use For Generate Order
+            Set<AttrAddedItem> attrsAdded
 
     ) {}
 
     @Builder
     public record DeliveryAddress(
-            @JsonIgnore
-            Integer id,
-
             String name,
             String address,
-            //UserAddressType addressType,
-
-            @JsonIgnore
-            double latitude,
-            @JsonIgnore
-            double longitude
+            String addressType
     ) {}
 
     @Builder

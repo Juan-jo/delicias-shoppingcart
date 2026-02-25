@@ -94,3 +94,10 @@ databaseChangeLog:
              constraintName: line_shopping_cart_uuid_fkey
              referencedColumnNames: id
              referencedTableName: shopping_cart
+  - changeSet:
+      id: SC004
+      author: jdev
+      changes:
+        - sql:
+            sql: >-
+              create extension if not exists "postgis";

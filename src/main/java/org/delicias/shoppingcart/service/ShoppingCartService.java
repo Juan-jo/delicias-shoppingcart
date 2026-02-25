@@ -2,19 +2,28 @@ package org.delicias.shoppingcart.service;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
-import jakarta.ws.rs.ProcessingException;
-import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.GenericType;
 import jakarta.ws.rs.core.Response;
+import org.delicias.common.adjusment.AdjustmentKeys;
+import org.delicias.common.adjusment.AdjustmentType;
+import org.delicias.common.adjusment.OrderAdjustment;
 import org.delicias.common.dto.product.ProductPriceDTO;
+import org.delicias.common.dto.restaurant.RestaurantLatLngDTO;
 import org.delicias.common.dto.restaurant.RestaurantResumeDTO;
+import org.delicias.common.dto.user.DefaultAddressDTO;
+import org.delicias.common.dto.user.UserShoppingAddressDTO;
+import org.delicias.exception.ShoppingBusinessException;
+import org.delicias.exception.ShoppingErrorCode;
 import org.delicias.line.domain.model.ShoppingCartLine;
 import org.delicias.line.domain.repository.ShoppingCartLineRepository;
 import org.delicias.rest.clients.ProductClient;
 import org.delicias.rest.clients.RestaurantClient;
+import org.delicias.rest.clients.UserClient;
 import org.delicias.rest.security.SecurityContextService;
 import org.delicias.shoppingcart.domain.model.ShoppingCart;
+import org.delicias.shoppingcart.domain.repository.ShippingCostService;
 import org.delicias.shoppingcart.domain.repository.ShoppingCartRepository;
 import org.delicias.shoppingcart.dto.ShoppingCartAvailableDTO;
 import org.delicias.shoppingcart.dto.ShoppingCartDTO;
@@ -44,6 +53,13 @@ public class ShoppingCartService {
     @Inject
     @RestClient
     ProductClient productClient;
+
+    @Inject
+    @RestClient
+    UserClient userClient;
+
+    @Inject
+    ShippingCostService shippingCostService;
 
     public List<ShoppingCartAvailableDTO> cartsAvailable() {
 
@@ -78,6 +94,10 @@ public class ShoppingCartService {
         }).filter(Objects::nonNull).toList();
     }
 
+
+
+
+    @Transactional
     public ShoppingCartDTO findById(UUID shoppingCartId) {
 
         ShoppingCart shoppingCart = cartRepository.findById(shoppingCartId);
@@ -91,7 +111,7 @@ public class ShoppingCartService {
         List<ShoppingCartDTO.ShoppingLine> lines = new ArrayList<>();
         List<ShoppingCartLine> linesAdded = lineRepository.getByShoppingCart(shoppingCartId);
 
-        Map<Integer, ProductPriceDTO> productsMap = findProducts(
+        Map<Integer, ProductPriceDTO> productsMap = getProductPrices(
                 linesAdded.stream().map(ShoppingCartLine::getProductTmplId).collect(Collectors.toSet())
         )
                 .stream()
@@ -117,32 +137,156 @@ public class ShoppingCartService {
 
         }
 
+        DeliveryAddressResult deliveryAddress = resolveDeliveryAddress(shoppingCart);
+
+        List<ShoppingCartDTO.ShoppingCharge> charges =
+                getShoppingCharges(shoppingCart.getAdjustments());
+
+
+        BigDecimal totalCharges = charges.stream()
+                .map(i->BigDecimal.valueOf(i.amount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         return ShoppingCartDTO.builder()
                 .id(shoppingCart.getId())
                 .shoppingLines(lines)
+                .charges(charges)
+                .hasDeliveryAddress(deliveryAddress.hasDeliveryAddress)
+                .deliveryAddress(deliveryAddress.deliveryAddress)
                 .subtotal(subtotal)
-                .total(BigDecimal.ZERO)
+                .total(subtotal.add(totalCharges))
                 .build();
     }
 
 
 
-    private List<ProductPriceDTO> findProducts(Set<Integer> ids) {
+    private List<ProductPriceDTO> getProductPrices(Set<Integer> ids) {
 
         try (Response response = productClient.getProductTmplPrices(ids)) {
 
+            if(response.getStatus() == Response.Status.PARTIAL_CONTENT.getStatusCode()) {
+
+                throw new ShoppingBusinessException(
+                        "Can't get prices",
+                        ShoppingErrorCode.SHOPPING_BAD_PRICES,
+                        400
+                );
+            }
             return response.readEntity(new GenericType<>() {});
-
-        } catch (WebApplicationException e) {
-
-            Response errorResponse = e.getResponse();
-
-            throw new RuntimeException("El servicio de productos devolvió un error: " + errorResponse.getStatus());
-        } catch (ProcessingException e) {
-
-            throw new RuntimeException("Error técnico de comunicación o formato de datos", e);
         }
     }
+
+    private RestaurantLatLngDTO getRestaurantLatLng(Integer restaurantTmplId) {
+
+        RestaurantLatLngDTO restaurant = restaurantClient.getLatLng(restaurantTmplId);
+
+        if(restaurant.latitude().equals(Double.NaN) || restaurant.longitude().equals(Double.NaN)) {
+            throw new ShoppingBusinessException(
+                    "Can't get restaurant position",
+                    ShoppingErrorCode.SHOPPING_BAD_RESTAURANT_LAT_LNG,
+                    400
+            );
+        }
+
+        return restaurant;
+    }
+
+    private DefaultAddressDTO getUserAddressDefault() {
+
+        try (Response response = userClient.getUserAddressDefault()) {
+
+            if(response.getStatus() == Response.Status.PARTIAL_CONTENT.getStatusCode()) {
+
+                throw new ShoppingBusinessException(
+                        "Can't get default user address",
+                        ShoppingErrorCode.SHOPPING_BAD_USER_ADDRESS_DEFAULT,
+                        400
+                );
+            }
+            return response.readEntity(DefaultAddressDTO.class);
+        }
+    }
+
+    private UserShoppingAddressDTO getShoppingAddress(Integer addressId) {
+
+        try (Response response = userClient.getUserAddress(addressId)) {
+
+            if(response.getStatus() == Response.Status.PARTIAL_CONTENT.getStatusCode()) {
+
+                throw new ShoppingBusinessException(
+                        "Can't get shopping address",
+                        ShoppingErrorCode.SHOPPING_BAD_USER_ADDRESS_DEFAULT,
+                        400
+                );
+            }
+            return response.readEntity(UserShoppingAddressDTO.class);
+        }
+    }
+
+
+    private static List<ShoppingCartDTO.ShoppingCharge> getShoppingCharges(List<OrderAdjustment> adjustments) {
+        List<ShoppingCartDTO.ShoppingCharge> charges;
+        charges = Optional.ofNullable(adjustments)
+                .orElseGet(List::of)
+                .stream()
+                .map(adjustment -> ShoppingCartDTO.ShoppingCharge.builder()
+                        .adjustmentType(adjustment.getType())
+                        .name(adjustment.getName())
+                        .amount(adjustment.getAmount())
+                        .build())
+                .toList();
+        return charges;
+    }
+
+    private DeliveryAddressResult resolveDeliveryAddress(ShoppingCart shoppingCart) {
+
+        if(shoppingCart.getUserAddressId() != null) {
+
+            UserShoppingAddressDTO address = getShoppingAddress(shoppingCart.getUserAddressId());
+
+            return new DeliveryAddressResult(true,
+                    ShoppingCartDTO.DeliveryAddress.builder()
+                            .name(address.name())
+                            .address(address.address())
+                            .addressType(address.addressType())
+                            .build()
+            );
+        }
+
+        DefaultAddressDTO defaultAddress = getUserAddressDefault();
+
+        if(defaultAddress.exists()) {
+
+            RestaurantLatLngDTO restaurantLatLng  = getRestaurantLatLng(shoppingCart.getRestaurantTmplId());
+
+            Integer distance = cartRepository.getDistance(
+                    defaultAddress.longitude(), defaultAddress.latitude(),
+                    restaurantLatLng.longitude(), restaurantLatLng.latitude()
+            );
+
+            double shipmentCost = shippingCostService.calculate(distance);
+
+            shoppingCart.addAdjustment(OrderAdjustment.builder()
+                    .key(AdjustmentKeys.SHIPPING_COST)
+                    .amount(shipmentCost)
+                    .type(AdjustmentType.CHARGE)
+                    .name("Costo de envío")
+                    .build());
+
+            shoppingCart.setUserAddressId(defaultAddress.data().id());
+
+            return new DeliveryAddressResult(true, ShoppingCartDTO.DeliveryAddress.builder()
+                    .name(defaultAddress.data().name())
+                    .address(defaultAddress.data().address())
+                    .addressType(defaultAddress.data().addressType())
+                    .build()
+            );
+        }
+
+        return new DeliveryAddressResult(false, null);
+
+    }
+
 
     private AttrCalculationResult calculateAttributes(ShoppingCartLine line, ProductPriceDTO product) {
 
@@ -181,6 +325,7 @@ public class ShoppingCartService {
     ) {
         return ShoppingCartDTO.ShoppingLine.builder()
                 .id(line.getId())
+                .productTmplId(line.getProductTmplId())
                 .productTmplName(product.name())
                 .productTmplDescription(product.description())
                 .qty(line.getQty())
@@ -195,5 +340,10 @@ public class ShoppingCartService {
             BigDecimal extraPrice,
             Set<Integer> selectedIds,
             Set<ShoppingCartDTO.AttrAddedItem> attrsAdded
+    ) {}
+
+    private record DeliveryAddressResult(
+            boolean hasDeliveryAddress,
+            ShoppingCartDTO.DeliveryAddress deliveryAddress
     ) {}
 }
