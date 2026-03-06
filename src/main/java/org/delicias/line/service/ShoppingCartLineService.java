@@ -12,12 +12,15 @@ import org.delicias.common.dto.product.ProductCandidateShoppingLineDTO;
 import org.delicias.line.domain.model.ShoppingCartLine;
 import org.delicias.line.domain.repository.ShoppingCartLineRepository;
 import org.delicias.line.dto.AddShoppingCartLineDTO;
+import org.delicias.line.dto.ShoppingCartLineDTO;
+import org.delicias.line.dto.UpdateShoppingCartLineDTO;
 import org.delicias.rest.clients.ProductClient;
 import org.delicias.rest.security.SecurityContextService;
 import org.delicias.shoppingcart.domain.model.ShoppingCart;
 import org.delicias.shoppingcart.domain.repository.ShoppingCartRepository;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -77,6 +80,74 @@ public class ShoppingCartLineService {
                         .attrValuesIds(req.attrValues())
                         .build()
         );
+
+    }
+
+    public ShoppingCartLineDTO findById(UUID shoppingCartLineId) {
+
+        ShoppingCartLine line = lineRepository.findById(shoppingCartLineId);
+
+        if (line == null) {
+            throw new NotFoundException("Line Not Found");
+        }
+
+        return ShoppingCartLineDTO.builder()
+                .id(line.getId())
+                .shoppingCartId(line.getShoppingCart().getId())
+                .qty(line.getQty())
+                .productTmplId(line.getProductTmplId())
+                .attrValues(line.getAttrValuesIds())
+                .build();
+    }
+
+    @Transactional
+    public void updateLine(UpdateShoppingCartLineDTO req){
+
+        ShoppingCartLine line = lineRepository.findById(req.id());
+
+        if (line == null) {
+            throw new NotFoundException("Line Not Found");
+        }
+
+        line.updateQty(req.qty(), req.attrValues());
+
+    }
+
+    @Transactional
+    public void path(UUID shoppingCartLineId, Map<String, Object> updates) {
+
+        ShoppingCartLine line = lineRepository.findById(shoppingCartLineId);
+
+        if (line == null) {
+            throw new NotFoundException("Line Not Found");
+        }
+
+        if (updates.containsKey("qty")) {
+            Number qty = (Number) updates.get("qty");
+
+            line.setQty(qty.shortValue());
+        }
+    }
+
+    @Transactional
+    public void deleteById(UUID shoppingCartLineId) {
+
+        ShoppingCartLine line = lineRepository.findById(shoppingCartLineId);
+
+        if (line == null) {
+            throw new NotFoundException("Line Not Found");
+        }
+
+        ShoppingCart cart = line.getShoppingCart();
+
+        lineRepository.delete(line);
+
+        cart.getLines().remove(line);
+
+
+        if (cart.getLines().isEmpty()) {
+            shoppingRepository.delete(cart);
+        }
 
     }
 

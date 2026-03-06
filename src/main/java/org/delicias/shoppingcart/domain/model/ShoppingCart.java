@@ -3,12 +3,14 @@ package org.delicias.shoppingcart.domain.model;
 import jakarta.persistence.*;
 import lombok.*;
 import org.delicias.common.adjusment.OrderAdjustment;
+import org.delicias.line.domain.model.ShoppingCartLine;
 import org.hibernate.annotations.Formula;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -41,6 +43,9 @@ public class ShoppingCart {
     @Formula("(SELECT COUNT(*) FROM shopping_cart_line s WHERE s.shopping_cart_uuid = id)")
     private Integer lineCount;
 
+    @OrderBy("id asc")
+    @OneToMany(mappedBy = "shoppingCart",  cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<ShoppingCartLine> lines;
 
     public void addAdjustment(OrderAdjustment adjustment) {
         if(this.adjustments == null) {
