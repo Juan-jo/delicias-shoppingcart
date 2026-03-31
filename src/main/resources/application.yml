@@ -58,7 +58,8 @@ quarkus:
       url: ${CLIENT_API_PRODUCTS_URL}
     restaurants-service:
       url: ${CLIENT_API_RESTAURANTS_URL}
-
+    shoppingcart-service:
+      url: ${CLIENT_API_SHOPPINGCART_URL}
 
 delicias:
   supabase:

@@ -36,4 +36,16 @@ public class ShoppingCartResource {
         ).build();
     }
 
+
+    // TODO For Core Client
+    @GET
+    @Path("/{shoppingCartId}/candidate-order")
+    public Response findCandidate(
+            @PathParam("shoppingCartId") UUID shoppingCartId
+    ) {
+        return Response.ok(
+                service.getCandidateOrder(shoppingCartId)
+        ).build();
+    }
+
 }

@@ -9,6 +9,7 @@ import jakarta.ws.rs.core.Response;
 import org.delicias.common.adjusment.AdjustmentKeys;
 import org.delicias.common.adjusment.AdjustmentType;
 import org.delicias.common.adjusment.OrderAdjustment;
+import org.delicias.common.dto.order.CandidateOrderDTO;
 import org.delicias.common.dto.product.ProductPriceDTO;
 import org.delicias.common.dto.restaurant.RestaurantLatLngDTO;
 import org.delicias.common.dto.restaurant.RestaurantResumeDTO;
@@ -149,6 +150,7 @@ public class ShoppingCartService {
 
         return ShoppingCartDTO.builder()
                 .id(shoppingCart.getId())
+                .restaurantTmplId(shoppingCart.getRestaurantTmplId())
                 .shoppingLines(lines)
                 .charges(charges)
                 .hasDeliveryAddress(deliveryAddress.hasDeliveryAddress)
@@ -158,6 +160,39 @@ public class ShoppingCartService {
                 .build();
     }
 
+    @Transactional
+    public CandidateOrderDTO getCandidateOrder(UUID shoppingCartUUID) {
+
+        ShoppingCartDTO shoppingCartDTO = findById(shoppingCartUUID);
+
+        return CandidateOrderDTO.builder()
+                .lines(shoppingCartDTO.shoppingLines().stream().map(it -> CandidateOrderDTO.Line.builder()
+                        .productId(it.productTmplId())
+                        .name(it.productTmplName())
+                        .qty(it.qty())
+                        .priceUnit(it.priceUnit())
+                        .priceTotal(it.priceTotal())
+                        .pictureUrl(it.pictureUrl())
+                        .attributes(
+                                Optional.ofNullable(it.attrsAdded())
+                                        .map(attrs -> attrs.stream().map(a-> String.format("%s: %s", a.attrName(), a.values())).toList())
+                                        .orElse(List.of())
+                        )
+                        .build()).toList())
+                .adjustments(shoppingCartDTO.charges().stream().map(it -> OrderAdjustment.builder()
+                        .key(it.key())
+                        .type(it.adjustmentType())
+                        .name(it.name())
+                        .amount(it.amount())
+                        .build()).toList())
+                .deliveryAddressId(
+                        shoppingCartDTO.hasDeliveryAddress() ? shoppingCartDTO.deliveryAddress().id() : null
+                )
+                .restaurantTmplId(shoppingCartDTO.restaurantTmplId())
+                .subtotal(shoppingCartDTO.subtotal())
+                .total(shoppingCartDTO.total())
+                .build();
+    }
 
 
     private List<ProductPriceDTO> getProductPrices(Set<Integer> ids) {
@@ -230,6 +265,7 @@ public class ShoppingCartService {
                 .orElseGet(List::of)
                 .stream()
                 .map(adjustment -> ShoppingCartDTO.ShoppingCharge.builder()
+                        .key(adjustment.getKey())
                         .adjustmentType(adjustment.getType())
                         .name(adjustment.getName())
                         .amount(adjustment.getAmount())
@@ -246,6 +282,7 @@ public class ShoppingCartService {
 
             return new DeliveryAddressResult(true,
                     ShoppingCartDTO.DeliveryAddress.builder()
+                            .id(address.id())
                             .name(address.name())
                             .address(address.address())
                             .addressType(address.addressType())
@@ -276,6 +313,7 @@ public class ShoppingCartService {
             shoppingCart.setUserAddressId(defaultAddress.data().id());
 
             return new DeliveryAddressResult(true, ShoppingCartDTO.DeliveryAddress.builder()
+                    .id(defaultAddress.data().id())
                     .name(defaultAddress.data().name())
                     .address(defaultAddress.data().address())
                     .addressType(defaultAddress.data().addressType())
@@ -329,6 +367,7 @@ public class ShoppingCartService {
                 .productTmplName(product.name())
                 .productTmplDescription(product.description())
                 .qty(line.getQty())
+                .priceUnit(product.listPrice())
                 .priceTotal(lineTotal)
                 .attrsAdded(attrResult.attrsAdded())
                 .pictureUrl(product.pictureUrl())

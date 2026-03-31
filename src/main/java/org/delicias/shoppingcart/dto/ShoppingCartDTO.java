@@ -1,5 +1,6 @@
 package org.delicias.shoppingcart.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import org.delicias.common.adjusment.AdjustmentType;
@@ -19,6 +20,9 @@ public record ShoppingCartDTO(
         BigDecimal subtotal,
         BigDecimal total,
 
+        @JsonIgnore //TODO Only For Candidate Order
+        Integer restaurantTmplId,
+
         List<ShoppingCharge> charges,
         boolean hasPromApplied,
         PromApplied prom
@@ -35,12 +39,15 @@ public record ShoppingCartDTO(
 
             String pictureUrl,
 
-            Set<AttrAddedItem> attrsAdded
+            Set<AttrAddedItem> attrsAdded,
 
+            @JsonIgnore //TODO Only For Candidate Order
+            BigDecimal priceUnit
     ) {}
 
     @Builder
     public record DeliveryAddress(
+            Integer id,
             String name,
             String address,
             String addressType
@@ -48,6 +55,9 @@ public record ShoppingCartDTO(
 
     @Builder
     public record ShoppingCharge(
+            @JsonIgnore //TODO Only For Candidate Order
+            String key,
+
             String name,
             AdjustmentType adjustmentType,
             double amount
