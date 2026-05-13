@@ -28,6 +28,7 @@ import org.delicias.shoppingcart.domain.repository.ShippingCostService;
 import org.delicias.shoppingcart.domain.repository.ShoppingCartRepository;
 import org.delicias.shoppingcart.dto.ShoppingCartAvailableDTO;
 import org.delicias.shoppingcart.dto.ShoppingCartDTO;
+import org.delicias.shoppingcart.dto.ShoppingRestaurantDTO;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.math.BigDecimal;
@@ -194,8 +195,35 @@ public class ShoppingCartService {
                 .build();
     }
 
+    @Transactional
+    public void deleteByUUID(UUID shoppingCartId) {
 
-    private List<ProductPriceDTO> getProductPrices(Set<Integer> ids) {
+        ShoppingCart shoppingCart = cartRepository.findById(shoppingCartId);
+
+        if (shoppingCart == null) {
+            throw new NotFoundException("ShoppingCart Not Found");
+        }
+
+        cartRepository.delete(shoppingCart);
+    }
+
+    public ShoppingRestaurantDTO shoppingRestaurant(Integer restaurantTmplId) {
+
+        return cartRepository.findByUserAndRestaurant(
+                        UUID.fromString(security.userId()),
+                        restaurantTmplId
+                ).map(it -> ShoppingRestaurantDTO.builder()
+                        .exists(true)
+                        .id(it.getId())
+                        .lineCount(it.getLineCount())
+                        .build())
+                .orElse(ShoppingRestaurantDTO.builder()
+                        .exists(false)
+                        .build());
+    }
+
+
+        private List<ProductPriceDTO> getProductPrices(Set<Integer> ids) {
 
         try (Response response = productClient.getProductTmplPrices(ids)) {
 

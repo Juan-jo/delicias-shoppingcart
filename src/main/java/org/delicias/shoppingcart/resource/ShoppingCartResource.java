@@ -36,6 +36,16 @@ public class ShoppingCartResource {
         ).build();
     }
 
+    @GET
+    @Path("/restuarant/{restaurantTmplId}")
+    public Response shoppingRestaurant(
+            @PathParam("restaurantTmplId") Integer restaurantTmplId
+    ) {
+        return Response.ok(
+                service.shoppingRestaurant(restaurantTmplId)
+        ).build();
+    }
+
 
     // TODO For Core Client
     @GET
@@ -46,6 +56,17 @@ public class ShoppingCartResource {
         return Response.ok(
                 service.getCandidateOrder(shoppingCartId)
         ).build();
+    }
+
+    // TODO For Core Client
+    @DELETE
+    @Path("/{shoppingCartId}")
+    public Response deleteById(
+            @PathParam("shoppingCartId") UUID shoppingCartId
+    ) {
+
+        service.deleteByUUID(shoppingCartId);
+        return Response.noContent().build();
     }
 
 }

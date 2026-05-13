@@ -20,7 +20,6 @@ public record ShoppingCartDTO(
         BigDecimal subtotal,
         BigDecimal total,
 
-        @JsonIgnore //TODO Only For Candidate Order
         Integer restaurantTmplId,
 
         List<ShoppingCharge> charges,
