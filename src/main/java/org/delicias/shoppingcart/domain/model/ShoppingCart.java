@@ -54,4 +54,13 @@ public class ShoppingCart {
 
         this.adjustments.add(adjustment);
     }
+
+    public void removeAdjustment(String key) {
+        if(this.adjustments!=null) {
+            this.adjustments.removeIf(adjustment -> key.equals(adjustment.getKey()));
+            if (this.adjustments.isEmpty()) {
+                this.adjustments = null;
+            }
+        }
+    }
 }

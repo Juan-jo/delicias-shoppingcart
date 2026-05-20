@@ -19,6 +19,7 @@ import org.delicias.exception.ShoppingBusinessException;
 import org.delicias.exception.ShoppingErrorCode;
 import org.delicias.line.domain.model.ShoppingCartLine;
 import org.delicias.line.domain.repository.ShoppingCartLineRepository;
+import org.delicias.minio.MinioStorageService;
 import org.delicias.rest.clients.ProductClient;
 import org.delicias.rest.clients.RestaurantClient;
 import org.delicias.rest.clients.UserClient;
@@ -63,6 +64,9 @@ public class ShoppingCartService {
     @Inject
     ShippingCostService shippingCostService;
 
+    @Inject
+    MinioStorageService minioStorageService;
+
     public List<ShoppingCartAvailableDTO> cartsAvailable() {
 
         var shoppingCarts = cartRepository.findByUser(UUID.fromString(security.userId()));
@@ -89,7 +93,7 @@ public class ShoppingCartService {
             return ShoppingCartAvailableDTO.builder()
                     .id(it.getId())
                     .restaurantName(resumeDTO.name())
-                    .restaurantLogo(resumeDTO.logoUrl())
+                    .restaurantLogo(minioStorageService.thumbnailUrl(resumeDTO.logoUrl()))
                     .lineCount(it.getLineCount())
                     .build();
 
@@ -306,23 +310,30 @@ public class ShoppingCartService {
 
         if(shoppingCart.getUserAddressId() != null) {
 
-            UserShoppingAddressDTO address = getShoppingAddress(shoppingCart.getUserAddressId());
+            DefaultAddressDTO defaultAddress = getUserAddressDefault();
 
-            return new DeliveryAddressResult(true,
-                    ShoppingCartDTO.DeliveryAddress.builder()
-                            .id(address.id())
-                            .name(address.name())
-                            .address(address.address())
-                            .addressType(address.addressType())
-                            .build()
-            );
+            if (shoppingCart.getUserAddressId().equals(defaultAddress.data().id())) {
+                return new DeliveryAddressResult(true,
+                        ShoppingCartDTO.DeliveryAddress.builder()
+                                .id(defaultAddress.data().id())
+                                .name(defaultAddress.data().name())
+                                .address(defaultAddress.data().address())
+                                .addressType(defaultAddress.data().addressType())
+                                .build()
+                );
+            }
+            return evaluateShipmentCharge(defaultAddress, shoppingCart);
         }
 
         DefaultAddressDTO defaultAddress = getUserAddressDefault();
+        return evaluateShipmentCharge(defaultAddress, shoppingCart);
 
-        if(defaultAddress.exists()) {
+    }
 
-            RestaurantLatLngDTO restaurantLatLng  = getRestaurantLatLng(shoppingCart.getRestaurantTmplId());
+    private DeliveryAddressResult evaluateShipmentCharge(DefaultAddressDTO defaultAddress, ShoppingCart shoppingCart) {
+        if (defaultAddress.exists()) {
+
+            RestaurantLatLngDTO restaurantLatLng = getRestaurantLatLng(shoppingCart.getRestaurantTmplId());
 
             Integer distance = cartRepository.getDistance(
                     defaultAddress.longitude(), defaultAddress.latitude(),
@@ -330,6 +341,8 @@ public class ShoppingCartService {
             );
 
             double shipmentCost = shippingCostService.calculate(distance);
+
+            shoppingCart.removeAdjustment(AdjustmentKeys.SHIPPING_COST);
 
             shoppingCart.addAdjustment(OrderAdjustment.builder()
                     .key(AdjustmentKeys.SHIPPING_COST)
@@ -348,10 +361,9 @@ public class ShoppingCartService {
                     .build()
             );
         }
-
         return new DeliveryAddressResult(false, null);
-
     }
+
 
 
     private AttrCalculationResult calculateAttributes(ShoppingCartLine line, ProductPriceDTO product) {

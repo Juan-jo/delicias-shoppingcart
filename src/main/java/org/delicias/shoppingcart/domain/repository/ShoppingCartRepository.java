@@ -28,10 +28,13 @@ public class ShoppingCartRepository implements PanacheRepositoryBase<ShoppingCar
             Double restaurantLng, Double restaurantLat
     ) {
 
+        System.out.println("--------------< Restaurant  LatLng:"+restaurantLat+","+restaurantLng+" >--------------");
+        System.out.println("--------------< Destination LatLng:"+addressLat+","+addressLng+" >--------------");
+
         String sql = """
         SELECT CEIL(ST_Distance(
-            ST_SetSRID(ST_MakePoint(:addressLng, :addressLat), 4326), 
-            ST_SetSRID(ST_MakePoint(:restaurantLng, :restaurantLat), 4326) 
+            ST_SetSRID(ST_MakePoint(:addressLng, :addressLat), 4326)::geography, 
+            ST_SetSRID(ST_MakePoint(:restaurantLng, :restaurantLat), 4326)::geography 
         ))
         """;
 
@@ -41,6 +44,8 @@ public class ShoppingCartRepository implements PanacheRepositoryBase<ShoppingCar
                 .setParameter("restaurantLng", restaurantLng)
                 .setParameter("restaurantLat", restaurantLat)
                 .getSingleResult();
+
+        System.out.println("--------------< Distancia:"+result+" >--------------");
 
         return result != null ? ((Number) result).intValue() : null;
     }

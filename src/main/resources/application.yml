@@ -62,7 +62,11 @@ quarkus:
       url: ${CLIENT_API_SHOPPINGCART_URL}
 
 delicias:
-  supabase:
-    url: ${SUPABASE_URL}
-    key: ${SUPABASE_KEY}
-    bucket: ${SUPABASE_BUCKET}
+  defaultPicture: gray_color.jpg
+  minio:
+    endpoint: ${MINIO_API}
+    access-key: ${MINIO_ACCESS_KEY}
+    secret-key: ${MINIO_SECRET_KEY}
+    bucket: ${MINIO_BUCKET}
+  imgproxy:
+    url: ${IMGPROXY_URL}
