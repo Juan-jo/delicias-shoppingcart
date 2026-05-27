@@ -92,6 +92,7 @@ public class ShoppingCartService {
 
             return ShoppingCartAvailableDTO.builder()
                     .id(it.getId())
+                    .restaurantId(resumeDTO.id())
                     .restaurantName(resumeDTO.name())
                     .restaurantLogo(minioStorageService.fitThumbnailUrl(resumeDTO.logoUrl()))
                     .lineCount(it.getLineCount())

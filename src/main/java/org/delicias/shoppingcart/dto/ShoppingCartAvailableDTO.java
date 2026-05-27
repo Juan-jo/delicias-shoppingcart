@@ -9,6 +9,7 @@ import java.util.UUID;
 @Builder
 public record ShoppingCartAvailableDTO(
         UUID id,
+        Integer restaurantId,
         String restaurantName,
         String restaurantLogo,
         Integer lineCount
